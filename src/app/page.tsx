@@ -34,7 +34,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-black">
       <nav className="flex justify-between p-4 border-b border-gray-700 items-center">
-        <h1 className="text-white font-bold text-xl">RouteBeta</h1>
+        <h1 className="text-white font-bold text-xl">TheGrottoBeta</h1>
         <div className="flex gap-4">
           {!isAdmin ? (
             <button onClick={handleAdminLogin} className="text-gray-400 text-sm">Setter Login</button>
