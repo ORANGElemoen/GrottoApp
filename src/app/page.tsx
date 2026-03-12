@@ -9,15 +9,15 @@ export default function Home() {
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Checks for admin status on load using sessionStorage
   useEffect(() => {
+    // Check status on load
     const adminStatus = sessionStorage.getItem('isSetter');
-    if (adminStatus === 'true') setIsAdmin(true);
+    setIsAdmin(adminStatus === 'true');
   }, []);
 
   const handleAdminLogin = () => {
     const code = prompt("Enter Setter Code:");
-    if (code === "1234") { // Replace with your actual code
+    if (code === "1234") {
       sessionStorage.setItem('isSetter', 'true');
       setIsAdmin(true);
     } else {
@@ -28,7 +28,9 @@ export default function Home() {
   const handleLogout = () => {
     sessionStorage.removeItem('isSetter');
     setIsAdmin(false);
-    setView('gallery');
+    // CRITICAL: Force a full reload to reset all component states 
+    // and remove administrative buttons from the DOM entirely.
+    window.location.reload();
   };
 
   return (
@@ -37,20 +39,44 @@ export default function Home() {
         <h1 className="text-white font-bold text-xl">TheGrottoBeta</h1>
         <div className="flex gap-4">
           {!isAdmin ? (
-            <button onClick={handleAdminLogin} className="text-gray-400 text-sm">Setter Login</button>
+            <button 
+              onClick={handleAdminLogin} 
+              className="text-gray-400 text-sm hover:text-white transition-colors"
+            >
+              Setter Login
+            </button>
           ) : (
-            <button onClick={handleLogout} className="text-red-400 text-sm">Logout</button>
+            <button 
+              onClick={handleLogout} 
+              className="text-red-400 text-sm hover:text-red-300 transition-colors"
+            >
+              Logout
+            </button>
           )}
         </div>
       </nav>
 
-      {view === 'gallery' && <Gallery onSelectRoute={(id) => { setActiveRouteId(id); setView('view'); }} />}
-      {view === 'view' && activeRouteId && <RouteViewer routeId={activeRouteId} onBack={() => setView('gallery')} />}
+      {/* Main View Controller */}
+      {view === 'gallery' && (
+        <Gallery onSelectRoute={(id) => { setActiveRouteId(id); setView('view'); }} />
+      )}
+      
+      {view === 'view' && activeRouteId && (
+        <RouteViewer 
+          routeId={activeRouteId} 
+          onBack={() => {
+            setView('gallery');
+            setActiveRouteId(null);
+          }} 
+        />
+      )}
       
       {/* 'New Route' button only appears if Admin is logged in */}
       {isAdmin && view === 'gallery' && (
-        <button onClick={() => setView('create')} 
-          className="fixed bottom-6 right-6 bg-green-700 text-white p-4 rounded-full shadow-lg z-50 font-bold">
+        <button 
+          onClick={() => setView('create')} 
+          className="fixed bottom-6 right-6 bg-green-700 text-white p-4 rounded-full shadow-lg z-50 font-bold hover:bg-green-600 transition-all"
+        >
           + New Route
         </button>
       )}
