@@ -18,10 +18,10 @@ interface ViewerProps {
     markerSize: number; 
     showLegend: boolean; 
     highContrast: boolean;
-    isSent: boolean; // NEW
+    isSent: boolean; 
   };
   onUpdateSettings: (key: string, val: any) => void;
-  onToggleSent: () => void; // NEW
+  onToggleSent: () => void; 
 }
 
 export default function RouteViewer({ routeId, onBack, settings, onUpdateSettings, onToggleSent }: ViewerProps) {
@@ -30,7 +30,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
   const [loading, setLoading] = useState(true);
   const [isSetter, setIsSetter] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [selectedType, setSelectedType] = useState('hold');
+  const [selectedType, setSelectedType] = useState('hold'); // Restored selection state
   const [showSettings, setShowSettings] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
@@ -73,7 +73,10 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    // Now using the selectedType from our restored UI selector
     const newMarker = { route_id: routeId, wall_id: wallId, x, y, type: selectedType, radius: 2.5 };
+    
     const { data } = await supabase.from('markers').insert([newMarker]).select();
     if (data) setMarkers([...markers, data[0]]);
   };
@@ -170,7 +173,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
         {!focusMode && <span className={`${accentColor} text-2xl font-bold tracking-widest uppercase`}>{route?.grade}</span>}
       </div>
 
-      {/* NEW: THE "SENT IT" TOGGLE BUTTON */}
+      {/* THE "SENT IT" TOGGLE BUTTON */}
       {!editMode && (
         <div className="flex flex-col items-center gap-2 mb-10 animate-in fade-in zoom-in duration-500">
           <button 
@@ -192,6 +195,27 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
               Added to your tick list
             </p>
           )}
+        </div>
+      )}
+
+      {/* RESTORED HOLD TYPE SELECTOR (ONLY IN EDIT MODE) */}
+      {editMode && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 flex gap-3 bg-black/80 p-3 rounded-2xl border border-white/10 backdrop-blur-md z-[60] animate-in slide-in-from-bottom-4">
+          {ROUTE_LEGEND.map((t) => (
+            <button
+              key={t.type}
+              onClick={() => setSelectedType(t.type)}
+              className={`flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+                selectedType === t.type ? 'bg-white/20 scale-110 shadow-lg' : 'opacity-40 hover:opacity-100'
+              }`}
+            >
+              <div 
+                className="w-6 h-6 rounded-full border-2 border-white/20" 
+                style={{ backgroundColor: t.color }} 
+              />
+              <span className="text-[8px] font-black uppercase tracking-tighter text-white">{t.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
