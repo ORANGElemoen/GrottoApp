@@ -30,7 +30,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
   const [loading, setLoading] = useState(true);
   const [isSetter, setIsSetter] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [selectedType, setSelectedType] = useState('hold'); // Restored selection state
+  const [selectedType, setSelectedType] = useState('hold');
   const [showSettings, setShowSettings] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
@@ -51,6 +51,19 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
     }
     fetchData();
   }, [routeId]);
+
+  const toggleArchive = async () => {
+    if (!route) return;
+    const newStatus = !route.is_archived;
+    const { error } = await supabase
+      .from('routes')
+      .update({ is_archived: newStatus })
+      .eq('id', routeId);
+
+    if (!error) {
+      setRoute({ ...route, is_archived: newStatus });
+    }
+  };
 
   const wallSequence = useMemo(() => {
     if (markers.length === 0) return [1, 2, 3, 4, 5, 6, 7];
@@ -73,10 +86,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    
-    // Now using the selectedType from our restored UI selector
     const newMarker = { route_id: routeId, wall_id: wallId, x, y, type: selectedType, radius: 2.5 };
-    
     const { data } = await supabase.from('markers').insert([newMarker]).select();
     if (data) setMarkers([...markers, data[0]]);
   };
@@ -92,7 +102,6 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
 
   return (
     <div className="w-full flex flex-col items-center p-4 pb-32">
-      
       {/* Settings Overlay */}
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -168,9 +177,28 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
       </div>
 
       {/* Header Info */}
-      <div className="text-center mt-16 mb-6 w-full max-w-md px-4">
-        <h2 className="text-white text-4xl font-black uppercase tracking-tighter leading-tight">{route?.name}</h2>
-        {!focusMode && <span className={`${accentColor} text-2xl font-bold tracking-widest uppercase`}>{route?.grade}</span>}
+      <div className="text-center mt-16 mb-6 w-full max-w-md px-4 relative">
+        <h2 className="text-white text-4xl font-black uppercase tracking-tighter leading-tight">
+          {route?.name}
+        </h2>
+        
+        {/* ARCHIVE TOGGLE FOR SETTERS */}
+        {isSetter && !focusMode && (
+          <button 
+            onClick={toggleArchive}
+            className={`mt-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border transition-all ${
+              route?.is_archived 
+                ? 'bg-red-600 border-red-400 text-white animate-pulse' 
+                : 'bg-gray-800 border-white/10 text-gray-500 hover:text-white'
+            }`}
+          >
+            {route?.is_archived ? '● Archived (Hidden)' : '○ Archive Route'}
+          </button>
+        )}
+
+        <div className="mt-2">
+          {!focusMode && <span className={`${accentColor} text-2xl font-bold tracking-widest uppercase`}>{route?.grade}</span>}
+        </div>
       </div>
 
       {/* THE "SENT IT" TOGGLE BUTTON */}

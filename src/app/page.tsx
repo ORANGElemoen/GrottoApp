@@ -78,6 +78,7 @@ export default function Home() {
     window.location.reload();
   };
 
+  // --- REFRESHED LAUNCH SCREEN (v1.1) ---
   if (isLaunching) {
     return (
       <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-black transition-opacity duration-1000">
@@ -89,10 +90,10 @@ export default function Home() {
           <h1 className="text-white text-5xl font-black tracking-tighter mb-4 z-10">
             THE <span className="text-blue-600">GROTTO</span>
           </h1>
-          <div className="flex items-center gap-3 z-10 opacity-50">
+          <div className="flex items-center gap-3 z-10 opacity-80">
             <div className="h-[1px] w-8 bg-gray-800"></div>
-            <p className="text-gray-500 text-[10px] font-bold uppercase tracking-[0.4em]">
-              Beta v1.0
+            <p className="text-blue-500 text-[10px] font-black uppercase tracking-[0.4em]">
+              Beta v1.1
             </p>
             <div className="h-[1px] w-8 bg-gray-800"></div>
           </div>
