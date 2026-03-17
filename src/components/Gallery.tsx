@@ -6,9 +6,10 @@ interface GalleryProps {
   onSelectRoute: (id: string) => void;
   activeFilter: string;
   completedIds: string[];
+  onGradeFilterChange: (grade: string) => void; // Fix: Added this to resolve the TS error
 }
 
-export default function Gallery({ onSelectRoute, activeFilter, completedIds }: GalleryProps) {
+export default function Gallery({ onSelectRoute, activeFilter, completedIds, onGradeFilterChange }: GalleryProps) {
   const [routes, setRoutes] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
