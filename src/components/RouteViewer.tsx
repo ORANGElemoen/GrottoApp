@@ -34,6 +34,10 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
   const [showSettings, setShowSettings] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
 
+  // New state for editing text fields
+  const [editName, setEditName] = useState('');
+  const [editGrade, setEditGrade] = useState('');
+
   const accentColor = settings.highContrast ? 'text-orange-500' : 'text-blue-500';
   const accentBg = settings.highContrast ? 'bg-orange-600' : 'bg-blue-600';
   const accentBorder = settings.highContrast ? 'border-orange-500' : 'border-blue-500';
@@ -44,13 +48,31 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
 
     async function fetchData() {
       const { data: routeData } = await supabase.from('routes').select('*').eq('id', routeId).single();
-      setRoute(routeData);
+      if (routeData) {
+        setRoute(routeData);
+        setEditName(routeData.name);
+        setEditGrade(routeData.grade);
+      }
       const { data: markerData } = await supabase.from('markers').select('*').eq('route_id', routeId);
       setMarkers(markerData || []);
       setLoading(false);
     }
     fetchData();
   }, [routeId]);
+
+  const saveRouteDetails = async () => {
+    const { error } = await supabase
+      .from('routes')
+      .update({ name: editName, grade: editGrade })
+      .eq('id', routeId);
+
+    if (!error) {
+      setRoute({ ...route, name: editName, grade: editGrade });
+      setEditMode(false);
+    } else {
+      console.error("Error updating route details:", error);
+    }
+  };
 
   const toggleArchive = async () => {
     if (!route) return;
@@ -169,8 +191,11 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
         <div className="flex gap-2">
           <button onClick={() => setShowSettings(true)} className="bg-gray-800/90 backdrop-blur text-white p-2 rounded-xl shadow-lg border border-white/5">⚙️</button>
           {isSetter && (
-            <button onClick={() => setEditMode(!editMode)} className={`${editMode ? 'bg-green-600' : accentBg} text-white px-5 py-2 rounded-xl shadow-lg font-bold transition-all`}>
-              {editMode ? 'Finish' : 'Edit'}
+            <button 
+              onClick={() => editMode ? saveRouteDetails() : setEditMode(true)} 
+              className={`${editMode ? 'bg-green-600 shadow-[0_0_20px_rgba(22,163,74,0.4)]' : accentBg} text-white px-5 py-2 rounded-xl shadow-lg font-bold transition-all active:scale-95`}
+            >
+              {editMode ? 'Save & Finish' : 'Edit'}
             </button>
           )}
         </div>
@@ -178,15 +203,37 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
 
       {/* Header Info */}
       <div className="text-center mt-16 mb-6 w-full max-w-md px-4 relative">
-        <h2 className="text-white text-4xl font-black uppercase tracking-tighter leading-tight">
-          {route?.name}
-        </h2>
+        {editMode ? (
+          <div className="flex flex-col gap-3 animate-in fade-in zoom-in duration-300">
+            <input 
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="bg-white/5 border-2 border-white/10 rounded-2xl p-3 text-white text-3xl font-black uppercase text-center focus:border-blue-500 focus:outline-none transition-all"
+              placeholder="Route Name"
+            />
+            <input 
+              value={editGrade}
+              onChange={(e) => setEditGrade(e.target.value)}
+              className="bg-white/5 border-2 border-white/10 rounded-2xl p-2 text-blue-400 text-xl font-bold uppercase text-center focus:border-blue-500 focus:outline-none transition-all"
+              placeholder="Grade"
+            />
+          </div>
+        ) : (
+          <>
+            <h2 className="text-white text-4xl font-black uppercase tracking-tighter leading-tight">
+              {route?.name}
+            </h2>
+            <div className="mt-2">
+              {!focusMode && <span className={`${accentColor} text-2xl font-bold tracking-widest uppercase`}>{route?.grade}</span>}
+            </div>
+          </>
+        )}
         
         {/* ARCHIVE TOGGLE FOR SETTERS */}
-        {isSetter && !focusMode && (
+        {isSetter && (editMode || !focusMode) && (
           <button 
             onClick={toggleArchive}
-            className={`mt-2 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border transition-all ${
+            className={`mt-4 px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border transition-all ${
               route?.is_archived 
                 ? 'bg-red-600 border-red-400 text-white animate-pulse' 
                 : 'bg-gray-800 border-white/10 text-gray-500 hover:text-white'
@@ -195,10 +242,6 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
             {route?.is_archived ? '● Archived (Hidden)' : '○ Archive Route'}
           </button>
         )}
-
-        <div className="mt-2">
-          {!focusMode && <span className={`${accentColor} text-2xl font-bold tracking-widest uppercase`}>{route?.grade}</span>}
-        </div>
       </div>
 
       {/* THE "SENT IT" TOGGLE BUTTON */}
@@ -226,7 +269,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
         </div>
       )}
 
-      {/* RESTORED HOLD TYPE SELECTOR (ONLY IN EDIT MODE) */}
+      {/* HOLD TYPE SELECTOR (ONLY IN EDIT MODE) */}
       {editMode && (
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 flex gap-3 bg-black/80 p-3 rounded-2xl border border-white/10 backdrop-blur-md z-[60] animate-in slide-in-from-bottom-4">
           {ROUTE_LEGEND.map((t) => (
