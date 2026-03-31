@@ -37,6 +37,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
 
   const [editName, setEditName] = useState('');
   const [editGrade, setEditGrade] = useState('');
+  const [editSetter, setEditSetter] = useState(''); // State for Setter updates
 
   const accentColor = settings.highContrast ? 'text-orange-500' : 'text-blue-500';
   const accentBg = settings.highContrast ? 'bg-orange-600' : 'bg-blue-600';
@@ -48,6 +49,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
         setRoute(routeData);
         setEditName(routeData.name);
         setEditGrade(routeData.grade);
+        setEditSetter(routeData.setter_name || ''); // Populate Setter from DB
       }
 
       const { data: markerData } = await supabase.from('markers').select('*').eq('route_id', routeId);
@@ -117,11 +119,15 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
   const saveRouteDetails = async () => {
     const { error } = await supabase
       .from('routes')
-      .update({ name: editName, grade: editGrade })
+      .update({ 
+        name: editName, 
+        grade: editGrade, 
+        setter_name: editSetter // Persist Setter Name changes
+      })
       .eq('id', routeId);
 
     if (!error) {
-      setRoute({ ...route, name: editName, grade: editGrade });
+      setRoute({ ...route, name: editName, grade: editGrade, setter_name: editSetter });
       setEditMode(false);
     }
   };
@@ -139,22 +145,17 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
     }
   };
 
-  // NEW LOGIC: Sequence starts from 'start' hold and follows the route direction
   const wallSequence = useMemo(() => {
     if (markers.length === 0) return [route?.wall_number || 1];
-
     const startMarkers = markers.filter(m => m.type === 'start');
     const topMarkers = markers.filter(m => m.type === 'top');
 
-    // 1. Determine Start Wall
     const startWall = startMarkers.length > 0 
       ? Math.min(...startMarkers.map(m => Number(m.wall_id))) 
       : Math.min(...markers.map(m => Number(m.wall_id)));
 
-    // 2. Determine End Wall (Priority to 'top', fallback to furthest marker)
     let endWall: number;
     if (topMarkers.length > 0) {
-      // If start is higher than tops (descending), target the lowest top. Else, target highest top.
       const isDescending = startMarkers.length > 0 && startWall > Math.max(...topMarkers.map(m => Number(m.wall_id)));
       endWall = isDescending 
         ? Math.min(...topMarkers.map(m => Number(m.wall_id))) 
@@ -166,11 +167,9 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
       endWall = Math.abs(startWall - minWall) > Math.abs(startWall - maxWall) ? minWall : maxWall;
     }
 
-    // 3. Generate Sequence with direction awareness
     const sequence = [];
     const step = startWall <= endWall ? 1 : -1;
     let current = startWall;
-    
     while (true) {
       sequence.push(current);
       if (current === endWall) break;
@@ -215,7 +214,7 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
   if (loading) return <div className="text-white p-20 text-center font-black animate-pulse uppercase tracking-[0.3em]">Syncing Route...</div>;
 
   return (
-    <div className="w-full flex flex-col items-center p-4 pb-32 bg-black min-h-screen">
+    <div className="w-full flex flex-col items-center p-4 pb-32 bg-black min-h-screen text-white">
       
       {showSettings && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/90 backdrop-blur-xl">
@@ -258,12 +257,14 @@ export default function RouteViewer({ routeId, onBack, settings, onUpdateSetting
       <div className="text-center mt-24 mb-6 w-full max-w-md px-6">
         {editMode ? (
           <div className="flex flex-col gap-4">
-            <input value={editName} onChange={(e) => setEditName(e.target.value)} className="bg-white/5 border-b-2 border-white/10 p-2 text-white text-4xl font-black uppercase text-center focus:border-blue-500 outline-none transition-all" />
-            <input value={editGrade} onChange={(e) => setEditGrade(e.target.value)} className={`bg-white/5 border-b-2 border-white/10 p-2 ${accentColor} text-2xl font-black uppercase text-center focus:border-blue-500 outline-none transition-all`} />
+            <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Route Name" className="bg-white/5 border-b-2 border-white/10 p-2 text-white text-4xl font-black uppercase text-center focus:border-blue-500 outline-none transition-all" />
+            <input value={editSetter} onChange={(e) => setEditSetter(e.target.value)} placeholder="Setter Name" className="bg-white/5 border-b-2 border-white/10 p-1 text-gray-400 text-sm font-black uppercase text-center focus:border-blue-500 outline-none transition-all" />
+            <input value={editGrade} onChange={(e) => setEditGrade(e.target.value)} placeholder="Grade (e.g. 6B)" className={`bg-white/5 border-b-2 border-white/10 p-2 ${accentColor} text-2xl font-black uppercase text-center focus:border-blue-500 outline-none transition-all`} />
           </div>
         ) : (
           <>
-            <h2 className="text-white text-5xl font-black uppercase tracking-tighter leading-none mb-4">{route?.name}</h2>
+            <h2 className="text-white text-5xl font-black uppercase tracking-tighter leading-none mb-2">{route?.name}</h2>
+            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.4em] mb-4">Set by {route?.setter_name || 'The Grotto'}</p>
             <div className="inline-block px-4 py-1 rounded-full bg-white/5 border border-white/10">
               <span className={`${accentColor} text-sm font-black tracking-[0.3em] uppercase`}>{route?.grade}</span>
             </div>

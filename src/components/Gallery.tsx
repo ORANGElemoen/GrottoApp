@@ -40,7 +40,6 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Routes (No image_url here, it's redundant now)
       const { data: routeData, error: routeError } = await supabase
         .from('routes')
         .select('*')
@@ -48,16 +47,15 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
 
       if (routeError) throw routeError;
 
-      // 2. Fetch Wall Snapshots linked to specific routes
       const { data: snapshotData, error: snapshotError } = await supabase
         .from('wall_snapshots')
-        .select('route_id, image_url');
+        .select('route_id, wall_number, image_url');
 
       if (snapshotError) throw snapshotError;
 
       const snapshotMap: Record<string, string> = {};
       snapshotData?.forEach(s => {
-        if (s.route_id) snapshotMap[s.route_id] = s.image_url;
+        snapshotMap[`${s.route_id}-${s.wall_number}`] = s.image_url;
       });
 
       setRoutes(routeData || []);
@@ -79,12 +77,9 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
       if (!file) return;
 
       setUploadingId(routeId);
-      
-      // Use routeId in the filename for uniqueness
       const fileExt = file.name.split('.').pop();
-      const fileName = `route-${routeId}-${Date.now()}.${fileExt}`;
+      const fileName = `route-${routeId}-wall-${wallNumber}-${Date.now()}.${fileExt}`;
 
-      // 1. Storage Upload
       const { error: uploadError } = await supabase.storage
         .from('wall-snapshots')
         .upload(fileName, file);
@@ -95,7 +90,6 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
         .from('wall-snapshots')
         .getPublicUrl(fileName);
 
-      // 2. Database Upsert (Updates if route_id exists, otherwise inserts)
       const { error: dbError } = await supabase
         .from('wall_snapshots')
         .upsert({ 
@@ -103,7 +97,7 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
           wall_number: wallNumber, 
           image_url: publicUrl,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'route_id' });
+        }, { onConflict: 'route_id, wall_number' });
 
       if (dbError) throw dbError;
 
@@ -117,8 +111,13 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
 
   const displayRoutes = useMemo(() => {
     return routes.filter(r => {
-      const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
-      if (!matchesSearch) return false;
+      const searchLower = search.toLowerCase();
+      // Updated Search Logic: Matches Name OR Setter Name
+      const matchesName = r.name.toLowerCase().includes(searchLower);
+      const matchesSetter = (r.setter_name || "").toLowerCase().includes(searchLower);
+      
+      if (!matchesName && !matchesSetter) return false;
+      
       if (activeFilter === 'All') return true;
       if (activeFilter === 'Sent') return completedIds.includes(r.id);
       return r.grade.toLowerCase() === activeFilter.toLowerCase();
@@ -151,7 +150,7 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
 
       <div className="relative mb-8">
         <input 
-          placeholder="Search..." 
+          placeholder="Search by name or setter..." 
           className="w-full p-4 pl-12 rounded-[1.5rem] bg-gray-900 border border-white/5 text-sm font-bold focus:outline-none focus:border-blue-500/50 transition-all" 
           onChange={(e) => setSearch(e.target.value)} 
         />
@@ -165,9 +164,7 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
           displayRoutes.map((r) => {
             const isSent = completedIds.includes(r.id);
             const isUploading = uploadingId === r.id;
-            
-            // PRIORITY: Use the specific route snapshot, fallback to the generic wall asset
-            const photoUrl = snapshots[r.id] || `/wall${r.wall_number}.jpg`;
+            const photoUrl = snapshots[`${r.id}-${r.wall_number}`] || `/wall${r.wall_number}.jpg`;
 
             return (
               <div 
@@ -189,13 +186,18 @@ export default function Gallery({ onSelectRoute, activeFilter, completedIds, onG
                       </div>
                     )}
                   </div>
-                  <div>
-                    <h3 className="font-black text-lg uppercase leading-tight tracking-tight">{r.name}</h3>
-                    <div className="flex items-center gap-2 mt-0.5">
-                       <span className="text-[10px] text-blue-500 font-black tracking-widest uppercase">
-                        Wall {r.wall_number} • {r.grade}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-black text-lg uppercase leading-tight tracking-tight truncate">{r.name}</h3>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[9px] text-gray-500 font-black tracking-widest uppercase">
+                        SET BY {r.setter_name || 'THE GROTTO'}
                       </span>
-                      {isSent && <span className="text-[8px] bg-green-900/30 text-green-500 px-1.5 py-0.5 rounded font-black uppercase">Sent</span>}
+                      <div className="flex items-center gap-2">
+                         <span className="text-[10px] text-blue-500 font-black tracking-widest uppercase">
+                          Wall {r.wall_number} • {r.grade}
+                        </span>
+                        {isSent && <span className="text-[8px] bg-green-900/30 text-green-500 px-1.5 py-0.5 rounded font-black uppercase">Sent</span>}
+                      </div>
                     </div>
                   </div>
                 </div>
